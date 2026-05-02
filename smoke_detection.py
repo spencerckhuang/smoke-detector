@@ -124,11 +124,23 @@ def make_circle_mask(
 # Per-feature measurements
 # ---------------------------------------------------------------------------
 
-def compute_saturation(image: np.ndarray, mask: np.ndarray) -> float:
-    """Mean HSV saturation inside the mask. Lower is smokier."""
+def _valid_mask(image: np.ndarray, mask: np.ndarray,
+                v_lo: float = 0.30, v_hi: float = 0.75) -> np.ndarray:
+    """Circle mask intersected with V in [v_lo, v_hi]. Returns uint8 0/255."""
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-    saturation = hsv[:, :, 1]
-    return float(cv2.mean(saturation, mask=mask)[0])
+    v = hsv[:, :, 2]
+    valid = ((v >= int(v_lo * 255)) & (v <= int(v_hi * 255))).astype(np.uint8) * 255
+    return cv2.bitwise_and(mask, valid)
+
+
+def compute_saturation(image: np.ndarray, mask: np.ndarray) -> float:
+    """Mean HSV saturation inside valid (mid-brightness) circle pixels.
+    Lower is smokier."""
+    valid = _valid_mask(image, mask)
+    if cv2.countNonZero(valid) == 0:
+        return 0.0
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+    return float(cv2.mean(hsv[:, :, 1], mask=valid)[0])
 
 
 def compute_edge_density(
@@ -137,16 +149,16 @@ def compute_edge_density(
     canny_low: int = 50,
     canny_high: int = 150,
 ) -> float:
-    """Fraction of in-circle pixels that are Canny edges. Lower is smokier."""
+    """Fraction of valid in-circle pixels that are Canny edges. Lower is smokier."""
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     edges = cv2.Canny(gray, canny_low, canny_high)
-    edges_in_mask = cv2.bitwise_and(edges, edges, mask=mask)
+    valid = _valid_mask(image, mask)
 
-    n_edge = int(np.count_nonzero(edges_in_mask))
-    n_mask = int(np.count_nonzero(mask))
-    if n_mask == 0:
+    n_valid = int(cv2.countNonZero(valid))
+    if n_valid == 0:
         return 0.0
-    return n_edge / n_mask
+    n_edge = int(cv2.countNonZero(cv2.bitwise_and(edges, edges, mask=valid)))
+    return n_edge / n_valid
 
 
 def compute_dark_channel(
@@ -154,17 +166,15 @@ def compute_dark_channel(
     mask: np.ndarray,
     patch_size: int = 15,
 ) -> float:
-    """
-    Mean dark channel prior (He et al., 2009) inside the mask. Higher is smokier.
-
-    Dark channel = min across BGR channels, then min in a local square patch.
-    Haze/smoke adds airlight to all channels, raising the per-pixel min, so the
-    dark channel of smoky regions is noticeably higher than that of clear ones.
-    """
+    """Mean dark channel prior inside valid (mid-brightness) circle pixels.
+    Higher is smokier."""
+    valid = _valid_mask(image, mask)
+    if cv2.countNonZero(valid) == 0:
+        return 0.0
     min_rgb = np.min(image, axis=2).astype(np.uint8)
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (patch_size, patch_size))
-    dark = cv2.erode(min_rgb, kernel)  # erosion of a grayscale image == local min
-    return float(cv2.mean(dark, mask=mask)[0])
+    dark = cv2.erode(min_rgb, kernel)
+    return float(cv2.mean(dark, mask=valid)[0])
 
 
 # ---------------------------------------------------------------------------
