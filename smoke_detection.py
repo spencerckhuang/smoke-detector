@@ -193,11 +193,11 @@ def analyze_smoke(
     *,
     weights: Tuple[float, float, float] = (0.4, 0.3, 0.3),
     saturation_clear: float = 120.0,
-    saturation_smoky: float = 20.0,
+    saturation_smoky: float = -35.1,
     edge_clear: float = 0.10,
-    edge_smoky: float = 0.01,
+    edge_smoky: float = -0.0538,
     dark_clear: float = 20.0,
-    dark_smoky: float = 150.0,
+    dark_smoky: float = 203.7,
     circle: Optional[Tuple[int, int, int]] = None,
 ) -> Tuple[SmokeMetrics, Tuple[int, int, int]]:
     """

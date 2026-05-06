@@ -1,0 +1,9 @@
+(for spencer's computer)
+python3 batch_smoke.py /mnt/c/Users/Spencer\ Huang/Desktop/S25_EXPERIMENT/virtuoso_cao_demo_modified_separated/data1/ --output smoke_scores.csv
+
+(general case)
+python3 batch_smoke.py /path/to/data1_folder --output smoke_scores.csv
+- where data1_folder has subdirectories 1_retract, 2_resect_start, etc.
+
+(make the grid)
+python smoke_grid.py smoke_scores.csv --output smoke_grid.png
